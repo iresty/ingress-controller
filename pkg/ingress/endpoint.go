@@ -114,6 +114,21 @@ func (c *endpointsController) sync(ctx context.Context, ev *types.Event) error {
 		portMap[port.Name] = port.Port
 	}
 	clusters := c.controller.apisix.ListClusters()
+
+	//endpoints turn to zero
+	if len(ep.Subsets) == 0 {
+		nodes := []apisixv1.UpstreamNode{}
+		for _, port := range svc.Spec.Ports {
+			svcPort := port.Port
+			name := apisixv1.ComposeUpstreamName(ep.Namespace, ep.Name, "", svcPort)
+			for _, cluster := range clusters {
+				if err := c.syncToCluster(ctx, cluster, nodes, name); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
 	for _, s := range ep.Subsets {
 		for _, port := range s.Ports {
 			svcPort, ok := portMap[port.Name]
