@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package api
 
 import (
@@ -32,6 +33,9 @@ type Server struct {
 	router       *gin.Engine
 	httpListener net.Listener
 	pprofMu      *http.ServeMux
+	certFile     string
+	keyFile      string
+	addr         string
 }
 
 // NewServer initializes the API Server.
@@ -48,6 +52,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	srv := &Server{
 		router:       router,
 		httpListener: httpListener,
+		certFile:     cfg.CertFilePath,
+		keyFile:      cfg.KeyFilePath,
+		addr:         cfg.HTTPListen,
 	}
 
 	if cfg.EnableProfiling {
@@ -71,9 +78,17 @@ func (srv *Server) Run(stopCh <-chan struct{}) error {
 			log.Errorf("failed to close http listener: %s", err)
 		}
 	}()
-	if err := srv.router.RunListener(srv.httpListener); err != nil && !types.IsUseOfClosedNetConnErr(err) {
-		log.Errorf("failed to start API Server: %s", err)
-		return err
+
+	if srv.keyFile == "" || srv.certFile == "" {
+		if err := srv.router.RunListener(srv.httpListener); err != nil && !types.IsUseOfClosedNetConnErr(err) {
+			log.Errorf("failed to start API Server: %s", err)
+			return err
+		}
+	} else {
+		if err := srv.router.RunTLS(srv.addr, srv.certFile, srv.keyFile); err != nil && !types.IsUseOfClosedNetConnErr(err) {
+			log.Errorf("failed to start API Server with TLS: %s", err)
+			return err
+		}
 	}
 	return nil
 }
