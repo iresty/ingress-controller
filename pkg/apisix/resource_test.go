@@ -97,3 +97,26 @@ func TestRouteVarsUnmarshalJSONCompatibility(t *testing.T) {
 	assert.Equal(t, "==", route.Vars[0][1].StrVal)
 	assert.Equal(t, "b", route.Vars[0][2].StrVal)
 }
+
+func TestItemConvertSchema(t *testing.T) {
+	item := &item{
+		Key: "apisix/plugins/key-auth",
+		Value: json.RawMessage(`
+			{
+    			"properties": {
+        			"disable": {
+            			"type": "boolean"
+        			}
+    			},
+    			"additionalProperties": false,
+    			"type": "object"
+			}
+		`),
+	}
+
+	s, err := item.schema()
+	assert.Nil(t, err)
+	assert.Equal(t, s.Name, "key-auth")
+	assert.Equal(t, s.Content["type"], "object")
+	assert.Equal(t, s.Content["additionalProperties"], false)
+}

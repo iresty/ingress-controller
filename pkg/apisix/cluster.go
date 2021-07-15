@@ -90,6 +90,7 @@ type cluster struct {
 	streamRoute  StreamRoute
 	globalRules  GlobalRule
 	consumer     Consumer
+	plugin       Plugin
 }
 
 func newCluster(o *ClusterOptions) (Cluster, error) {
@@ -124,6 +125,7 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	c.streamRoute = newStreamRouteClient(c)
 	c.globalRules = newGlobalRuleClient(c)
 	c.consumer = newConsumerClient(c)
+	c.plugin = newPluginClient(c)
 
 	c.cache, err = cache.NewMemDBCache()
 	if err != nil {
@@ -329,6 +331,11 @@ func (c *cluster) GlobalRule() GlobalRule {
 // Consumer implements Cluster.Consumer method.
 func (c *cluster) Consumer() Consumer {
 	return c.consumer
+}
+
+// Plugin implements Cluster.Plugin method.
+func (c *cluster) Plugin() Plugin {
+	return c.plugin
 }
 
 // HealthCheck implements Cluster.HealthCheck method.

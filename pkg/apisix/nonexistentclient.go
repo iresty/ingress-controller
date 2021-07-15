@@ -35,6 +35,7 @@ func newNonExistentCluster() *nonExistentCluster {
 			streamRoute: &dummyStreamRoute{},
 			globalRule:  &dummyGlobalRule{},
 			consumer:    &dummyConsumer{},
+			plugin:      &dummyPlugin{},
 		},
 	}
 }
@@ -46,6 +47,7 @@ type embedDummyResourceImplementer struct {
 	streamRoute StreamRoute
 	globalRule  GlobalRule
 	consumer    Consumer
+	plugin      Plugin
 }
 
 type dummyRoute struct{}
@@ -180,6 +182,12 @@ func (f *dummyConsumer) Update(_ context.Context, _ *v1.Consumer) (*v1.Consumer,
 	return nil, ErrClusterNotExist
 }
 
+type dummyPlugin struct{}
+
+func (f *dummyPlugin) Get(_ context.Context, _ string) (*v1.Schema, error) {
+	return nil, ErrClusterNotExist
+}
+
 func (nc *nonExistentCluster) Route() Route {
 	return nc.route
 }
@@ -204,6 +212,10 @@ func (nc *nonExistentCluster) Consumer() Consumer {
 	return nc.consumer
 }
 
+func (nc *nonExistentCluster) Plugin() Plugin {
+	return nc.plugin
+}
+
 func (nc *nonExistentCluster) HasSynced(_ context.Context) error {
 	return nil
 }
@@ -226,12 +238,14 @@ func (c *dummyCache) InsertUpstream(_ *v1.Upstream) error              { return 
 func (c *dummyCache) InsertStreamRoute(_ *v1.StreamRoute) error        { return nil }
 func (c *dummyCache) InsertGlobalRule(_ *v1.GlobalRule) error          { return nil }
 func (c *dummyCache) InsertConsumer(_ *v1.Consumer) error              { return nil }
+func (c *dummyCache) InsertSchema(_ *v1.Schema) error                  { return nil }
 func (c *dummyCache) GetRoute(_ string) (*v1.Route, error)             { return nil, cache.ErrNotFound }
 func (c *dummyCache) GetSSL(_ string) (*v1.Ssl, error)                 { return nil, cache.ErrNotFound }
 func (c *dummyCache) GetUpstream(_ string) (*v1.Upstream, error)       { return nil, cache.ErrNotFound }
 func (c *dummyCache) GetStreamRoute(_ string) (*v1.StreamRoute, error) { return nil, cache.ErrNotFound }
 func (c *dummyCache) GetGlobalRule(_ string) (*v1.GlobalRule, error)   { return nil, cache.ErrNotFound }
 func (c *dummyCache) GetConsumer(_ string) (*v1.Consumer, error)       { return nil, cache.ErrNotFound }
+func (c *dummyCache) GetSchema(_ string) (*v1.Schema, error)           { return nil, cache.ErrNotFound }
 func (c *dummyCache) ListRoutes() ([]*v1.Route, error)                 { return nil, nil }
 func (c *dummyCache) ListSSL() ([]*v1.Ssl, error)                      { return nil, nil }
 func (c *dummyCache) ListUpstreams() ([]*v1.Upstream, error)           { return nil, nil }
@@ -244,3 +258,4 @@ func (c *dummyCache) DeleteUpstream(_ *v1.Upstream) error              { return 
 func (c *dummyCache) DeleteStreamRoute(_ *v1.StreamRoute) error        { return nil }
 func (c *dummyCache) DeleteGlobalRule(_ *v1.GlobalRule) error          { return nil }
 func (c *dummyCache) DeleteConsumer(_ *v1.Consumer) error              { return nil }
+func (c *dummyCache) DeleteSchema(_ *v1.Schema) error                  { return nil }

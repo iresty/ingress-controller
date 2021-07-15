@@ -173,3 +173,16 @@ func (i *item) consumer() (*v1.Consumer, error) {
 	}
 	return &consumer, nil
 }
+
+// schema decodes item.Value and converts it to v1.Schema.
+func (i *item) schema() (*v1.Schema, error) {
+	log.Debugf("got schema: %s", string(i.Value))
+
+	var content map[string]interface{}
+	if err := json.Unmarshal(i.Value, &content); err != nil {
+		return nil, err
+	}
+	return &v1.Schema{
+		Content: content,
+	}, nil
+}

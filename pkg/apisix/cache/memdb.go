@@ -70,6 +70,10 @@ func (c *dbCache) InsertConsumer(consumer *v1.Consumer) error {
 	return c.insert("consumer", consumer.DeepCopy())
 }
 
+func (c *dbCache) InsertSchema(schema *v1.Schema) error {
+	return c.insert("schema", schema.DeepCopy())
+}
+
 func (c *dbCache) insert(table string, obj interface{}) error {
 	txn := c.db.Txn(true)
 	defer txn.Abort()
@@ -126,6 +130,14 @@ func (c *dbCache) GetConsumer(username string) (*v1.Consumer, error) {
 		return nil, err
 	}
 	return obj.(*v1.Consumer).DeepCopy(), nil
+}
+
+func (c *dbCache) GetSchema(name string) (*v1.Schema, error) {
+	obj, err := c.get("schema", name)
+	if err != nil {
+		return nil, err
+	}
+	return obj.(*v1.Schema).DeepCopy(), nil
 }
 
 func (c *dbCache) get(table, id string) (interface{}, error) {
@@ -255,6 +267,10 @@ func (c *dbCache) DeleteGlobalRule(gr *v1.GlobalRule) error {
 
 func (c *dbCache) DeleteConsumer(consumer *v1.Consumer) error {
 	return c.delete("consumer", consumer)
+}
+
+func (c *dbCache) DeleteSchema(schema *v1.Schema) error {
+	return c.delete("schema", schema)
 }
 
 func (c *dbCache) delete(table string, obj interface{}) error {
