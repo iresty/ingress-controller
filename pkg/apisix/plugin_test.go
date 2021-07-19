@@ -16,11 +16,8 @@ package apisix
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
-	"sort"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -30,8 +27,16 @@ import (
 )
 
 type fakeAPISIXPluginSrv struct {
-	plugin map[string]json.RawMessage
+	plugins map[string]string
 }
+
+var testData = map[string]string{
+	"key-auth":           `{"$comment":"this is a mark for our injected plugin schema","type":"object","additionalProperties":false,"properties":{"disable":{"type":"boolean"},"header":{"default":"apikey","type":"string"}}}`,
+	"batch-requests":     `{"$comment":"this is a mark for our injected plugin schema","type":"object","additionalProperties":false,"properties":{"disable":{"type":"boolean"}}}`,
+	"ext-plugin-pre-req": `{"properties":{"disable":{"type":"boolean"},"extra_info":{"items":{"type":"string","minLength":1,"maxLength":64},"minItems":1,"type":"array"},"conf":{"items":{"properties":{"value":{"type":"string"},"name":{"type":"string","minLength":1,"maxLength":128}},"type":"object"},"minItems":1,"type":"array"}},"$comment":"this is a mark for our injected plugin schema","type":"object"}`,
+}
+
+const errMsg = `{"error_msg":"failed to load plugin ext-plugin-pre-rq"}`
 
 func (srv *fakeAPISIXPluginSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
@@ -42,26 +47,19 @@ func (srv *fakeAPISIXPluginSrv) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	if r.Method == http.MethodGet {
-		resp := fakeListResp{
-			Count: strconv.Itoa(len(srv.plugin)),
-			Node: fakeNode{
-				Key: "/apisix/plugins",
-			},
+		list := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+		if len(list) < 1 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
 		}
-		var keys []string
-		for key := range srv.plugin {
-			keys = append(keys, key)
-		}
-		sort.Strings(keys)
-		for _, key := range keys {
-			resp.Node.Items = append(resp.Node.Items, fakeItem{
-				Key:   key,
-				Value: srv.plugin[key],
-			})
+
+		pluginName := list[len(list)-1]
+		if resp, ok := srv.plugins[pluginName]; ok {
+			_, _ = w.Write([]byte(resp))
+		} else {
+			_, _ = w.Write([]byte(errMsg))
 		}
 		w.WriteHeader(http.StatusOK)
-		data, _ := json.Marshal(resp)
-		_, _ = w.Write(data)
 		return
 	}
 
@@ -69,7 +67,7 @@ func (srv *fakeAPISIXPluginSrv) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 func runFakePluginSrv(t *testing.T) *http.Server {
 	srv := &fakeAPISIXPluginSrv{
-		plugin: make(map[string]json.RawMessage),
+		plugins: testData,
 	}
 
 	ln, _ := nettest.NewLocalListener("tcp")
@@ -109,21 +107,14 @@ func TestPluginClient(t *testing.T) {
 		cacheSynced: closedCh,
 	})
 
-	// Get
-	obj, err := cli.Get(context.Background(), "key-auth")
-	assert.Nil(t, err)
-	assert.Equal(t, obj.Name, "key-auth")
-	//
-	//obj, err = cli.Create(context.Background(), &v1.Route{
-	//	Metadata: v1.Metadata{
-	//		ID:   "2",
-	//		Name: "test",
-	//	},
-	//	Host:       "www.foo.com",
-	//	Uri:        "/bar",
-	//	UpstreamId: "1",
-	//})
-	//assert.Nil(t, err)
-	//assert.Equal(t, obj.ID, "2")
+	for k := range testData {
+		obj, err := cli.Get(context.Background(), k)
+		assert.Nil(t, err)
+		assert.Equal(t, obj.Name, k)
+		assert.Equal(t, obj.Content, testData[k])
+	}
 
+	obj, err := cli.Get(context.Background(), "not-a-plugin")
+	assert.Nil(t, err)
+	assert.Equal(t, obj.Content, errMsg)
 }

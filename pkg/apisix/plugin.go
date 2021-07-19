@@ -61,7 +61,7 @@ func (p *pluginClient) Get(ctx context.Context, name string) (*v1.Schema, error)
 	}
 
 	url := p.url + "/" + name
-	resp, err := p.cluster.getResource(ctx, url)
+	content, err := p.cluster.getSchema(ctx, url)
 	if err != nil {
 		log.Errorw("failed to get plugin schema from APISIX",
 			zap.String("name", name),
@@ -72,18 +72,10 @@ func (p *pluginClient) Get(ctx context.Context, name string) (*v1.Schema, error)
 		return nil, err
 	}
 
-	schema, err = resp.Item.schema()
-	if err != nil {
-		log.Errorw("failed to convert schema item",
-			zap.String("url", p.url),
-			zap.String("plugin_name", resp.Item.Key),
-			zap.String("plugin_schema", string(resp.Item.Value)),
-			zap.Error(err),
-		)
-		return nil, err
+	schema = &v1.Schema{
+		Name:    name,
+		Content: content,
 	}
-
-	schema.Name = name
 	if err := p.cluster.cache.InsertSchema(schema); err != nil {
 		log.Errorf("failed to reflect schema create to cache: %s", err)
 		return nil, err

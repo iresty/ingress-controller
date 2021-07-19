@@ -557,3 +557,27 @@ func readBody(r io.ReadCloser, url string) string {
 	}
 	return string(data)
 }
+
+// getSchema returns the schema of APISIX object.
+func (c *cluster) getSchema(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return "", err
+	}
+	defer drainBody(resp.Body, url)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return "", cache.ErrNotFound
+		} else {
+			err = multierr.Append(err, fmt.Errorf("unexpected status code %d", resp.StatusCode))
+			err = multierr.Append(err, fmt.Errorf("error message: %s", readBody(resp.Body, url)))
+		}
+		return "", err
+	}
+
+	return readBody(resp.Body, url), nil
+}
