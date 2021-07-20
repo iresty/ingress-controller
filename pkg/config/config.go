@@ -38,6 +38,8 @@ const (
 	// or higher, or the annotation "kubernetes.io/ingress.class" (deprecated).
 	IngressClass = "apisix"
 
+	ApisixRouteClass = ""
+
 	// IngressNetworkingV1 represents ingress.networking/v1
 	IngressNetworkingV1 = "networking/v1"
 	// IngressNetworkingV1beta1 represents ingress.networking/v1beta1
@@ -75,6 +77,7 @@ type KubernetesConfig struct {
 	ElectionID          string             `json:"election_id" yaml:"election_id"`
 	IngressClass        string             `json:"ingress_class" yaml:"ingress_class"`
 	IngressVersion      string             `json:"ingress_version" yaml:"ingress_version"`
+	ApisixRouteClass    string             `json:"apisix_route_class" yaml:"apisix_route_class"`
 	WatchEndpointSlices bool               `json:"watch_endpoint_slices" yaml:"watch_endpoint_slices"`
 	ApisixRouteVersion  string             `json:"apisix_route_version" yaml:"apisix_route_version"`
 }
@@ -112,6 +115,7 @@ func NewDefaultConfig() *Config {
 			AppNamespaces:       []string{v1.NamespaceAll},
 			ElectionID:          IngressAPISIXLeader,
 			IngressClass:        IngressClass,
+			ApisixRouteClass:    ApisixRouteClass,
 			IngressVersion:      IngressNetworkingV1,
 			ApisixRouteVersion:  ApisixRouteV2alpha1,
 			WatchEndpointSlices: false,

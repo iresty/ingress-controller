@@ -31,6 +31,10 @@ import (
 	"github.com/apache/apisix-ingress-controller/pkg/types"
 )
 
+const (
+	_apisixrouteKey = "kubernetes.io/apisixroute.class"
+)
+
 type apisixRouteController struct {
 	controller *Controller
 	workqueue  workqueue.RateLimitingInterface
@@ -292,6 +296,26 @@ func (c *apisixRouteController) handleSyncErr(obj interface{}, errOrigin error) 
 	c.workqueue.AddRateLimited(obj)
 }
 
+func (c *apisixRouteController) isApisixRouteEffective(ar kube.ApisixRoute) bool {
+	var ara string
+
+	if ar.GroupVersion() == kube.ApisixRouteV1 {
+		ara = ar.V1().GetAnnotations()[_apisixrouteKey]
+	} else if ar.GroupVersion() == kube.ApisixRouteV2alpha1 {
+		ara = ar.V2alpha1().GetAnnotations()[_apisixrouteKey]
+	} else if ar.GroupVersion() == kube.ApisixRouteV2beta1 {
+		ara = ar.V2beta1().GetAnnotations()[_apisixrouteKey]
+	} else {
+		ara = c.controller.cfg.Kubernetes.ApisixRouteClass
+	}
+
+	if c.controller.cfg.Kubernetes.ApisixRouteClass == "" || c.controller.cfg.Kubernetes.ApisixRouteClass == ara {
+		return true
+	}
+
+	return false
+}
+
 func (c *apisixRouteController) onAdd(obj interface{}) {
 	key, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
@@ -301,10 +325,19 @@ func (c *apisixRouteController) onAdd(obj interface{}) {
 	if !c.controller.namespaceWatching(key) {
 		return
 	}
+
+	ar := kube.MustNewApisixRoute(obj)
+
+	if !c.isApisixRouteEffective(ar) {
+		log.Debugw("ignore noneffective ApisixRoute add event",
+			zap.Any("object", obj),
+		)
+		return
+	}
+
 	log.Debugw("ApisixRoute add event arrived",
 		zap.Any("object", obj))
 
-	ar := kube.MustNewApisixRoute(obj)
 	c.workqueue.AddRateLimited(&types.Event{
 		Type: types.EventAdd,
 		Object: kube.ApisixRouteEvent{
@@ -326,6 +359,13 @@ func (c *apisixRouteController) onUpdate(oldObj, newObj interface{}) {
 		return
 	}
 	if !c.controller.namespaceWatching(key) {
+		return
+	}
+	if !c.isApisixRouteEffective(curr) {
+		log.Debugw("ignore noneffective ApisixRoute update event arrived",
+			zap.Any("new object", curr),
+			zap.Any("old object", prev),
+		)
 		return
 	}
 	log.Debugw("ApisixRoute update event arrived",
@@ -357,6 +397,12 @@ func (c *apisixRouteController) onDelete(obj interface{}) {
 		return
 	}
 	if !c.controller.namespaceWatching(key) {
+		return
+	}
+	if !c.isApisixRouteEffective(ar) {
+		log.Debugw("ignore noneffective ApisixRoute delete event arrived",
+			zap.Any("final state", ar),
+		)
 		return
 	}
 	log.Debugw("ApisixRoute delete event arrived",
