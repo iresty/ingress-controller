@@ -228,6 +228,18 @@ func (c *dbCache) ListConsumers() ([]*v1.Consumer, error) {
 	return consumers, nil
 }
 
+func (c *dbCache) ListSchema() ([]*v1.Schema, error) {
+	raws, err := c.list("schema")
+	if err != nil {
+		return nil, err
+	}
+	schemaList := make([]*v1.Schema, 0, len(raws))
+	for _, raw := range raws {
+		schemaList = append(schemaList, raw.(*v1.Schema).DeepCopy())
+	}
+	return schemaList, nil
+}
+
 func (c *dbCache) list(table string) ([]interface{}, error) {
 	txn := c.db.Txn(false)
 	defer txn.Abort()

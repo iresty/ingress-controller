@@ -36,6 +36,7 @@ func newNonExistentCluster() *nonExistentCluster {
 			globalRule:  &dummyGlobalRule{},
 			consumer:    &dummyConsumer{},
 			plugin:      &dummyPlugin{},
+			schema:      &dummySchema{},
 		},
 	}
 }
@@ -48,6 +49,7 @@ type embedDummyResourceImplementer struct {
 	globalRule  GlobalRule
 	consumer    Consumer
 	plugin      Plugin
+	schema      Schema
 }
 
 type dummyRoute struct{}
@@ -184,7 +186,13 @@ func (f *dummyConsumer) Update(_ context.Context, _ *v1.Consumer) (*v1.Consumer,
 
 type dummyPlugin struct{}
 
-func (f *dummyPlugin) Get(_ context.Context, _ string) (*v1.Schema, error) {
+func (f *dummyPlugin) List(_ context.Context) ([]string, error) {
+	return nil, ErrClusterNotExist
+}
+
+type dummySchema struct{}
+
+func (f *dummySchema) GetPluginSchema(_ context.Context, _ string) (*v1.Schema, error) {
 	return nil, ErrClusterNotExist
 }
 
@@ -214,6 +222,10 @@ func (nc *nonExistentCluster) Consumer() Consumer {
 
 func (nc *nonExistentCluster) Plugin() Plugin {
 	return nc.plugin
+}
+
+func (nc *nonExistentCluster) Schema() Schema {
+	return nc.schema
 }
 
 func (nc *nonExistentCluster) HasSynced(_ context.Context) error {
@@ -252,6 +264,7 @@ func (c *dummyCache) ListUpstreams() ([]*v1.Upstream, error)           { return 
 func (c *dummyCache) ListStreamRoutes() ([]*v1.StreamRoute, error)     { return nil, nil }
 func (c *dummyCache) ListGlobalRules() ([]*v1.GlobalRule, error)       { return nil, nil }
 func (c *dummyCache) ListConsumers() ([]*v1.Consumer, error)           { return nil, nil }
+func (c *dummyCache) ListSchema() ([]*v1.Schema, error)                { return nil, nil }
 func (c *dummyCache) DeleteRoute(_ *v1.Route) error                    { return nil }
 func (c *dummyCache) DeleteSSL(_ *v1.Ssl) error                        { return nil }
 func (c *dummyCache) DeleteUpstream(_ *v1.Upstream) error              { return nil }

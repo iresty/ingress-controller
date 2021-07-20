@@ -56,6 +56,8 @@ type Cluster interface {
 	HealthCheck(context.Context) error
 	// Plugin returns a Plugin interface that can operate Plugin resources.
 	Plugin() Plugin
+	// Schema returns a Schema interface that can fetch schema of APISIX objects.
+	Schema() Schema
 }
 
 // Route is the specific client interface to take over the create, update,
@@ -120,7 +122,12 @@ type Consumer interface {
 
 // Plugin is the specific client interface to fetch APISIX Plugin resource.
 type Plugin interface {
-	Get(context.Context, string) (*v1.Schema, error)
+	List(context.Context) ([]string, error)
+}
+
+// Schema is the specific client interface to fetch the schema of APISIX objects.
+type Schema interface {
+	GetPluginSchema(context.Context, string) (*v1.Schema, error)
 }
 
 type apisix struct {

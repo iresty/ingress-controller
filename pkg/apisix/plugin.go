@@ -17,10 +17,7 @@ package apisix
 
 import (
 	"context"
-	"github.com/apache/apisix-ingress-controller/pkg/apisix/cache"
-	"github.com/apache/apisix-ingress-controller/pkg/id"
 	"github.com/apache/apisix-ingress-controller/pkg/log"
-	v1 "github.com/apache/apisix-ingress-controller/pkg/types/apisix/v1"
 	"go.uber.org/zap"
 )
 
@@ -36,49 +33,17 @@ func newPluginClient(c *cluster) Plugin {
 	}
 }
 
-// Get returns the plugin's schema.
-func (p *pluginClient) Get(ctx context.Context, name string) (*v1.Schema, error) {
-	log.Debugw("try to look up plugin's schema",
-		zap.String("name", name),
-		zap.String("url", p.url),
+// List returns the names of all plugins.
+func (p *pluginClient) List(ctx context.Context) ([]string, error) {
+	log.Debugw("try to list plugins' names in APISIX",
 		zap.String("cluster", "default"),
+		zap.String("url", p.url),
 	)
-	sid := id.GenID(name)
-	schema, err := p.cluster.cache.GetSchema(sid)
-	if err == nil {
-		return schema, nil
-	}
-	if err == cache.ErrNotFound {
-		log.Debugw("failed to find plugin's schema in cache, will try to lookup from APISIX",
-			zap.String("name", name),
-			zap.Error(err),
-		)
-	} else {
-		log.Errorw("failed to find plugin's schema in cache, will try to lookup from APISIX",
-			zap.String("name", name),
-			zap.Error(err),
-		)
-	}
-
-	url := p.url + "/" + name
-	content, err := p.cluster.getSchema(ctx, url)
+	pluginList, err := p.cluster.getList(ctx, p.url+"/list")
 	if err != nil {
-		log.Errorw("failed to get plugin schema from APISIX",
-			zap.String("name", name),
-			zap.String("url", url),
-			zap.String("cluster", "default"),
-			zap.Error(err),
-		)
+		log.Errorf("failed to list plugins' names: %s", err)
 		return nil, err
 	}
 
-	schema = &v1.Schema{
-		Name:    name,
-		Content: content,
-	}
-	if err := p.cluster.cache.InsertSchema(schema); err != nil {
-		log.Errorf("failed to reflect schema create to cache: %s", err)
-		return nil, err
-	}
-	return schema, nil
+	return pluginList, nil
 }

@@ -91,6 +91,7 @@ type cluster struct {
 	globalRules  GlobalRule
 	consumer     Consumer
 	plugin       Plugin
+	schema       Schema
 }
 
 func newCluster(o *ClusterOptions) (Cluster, error) {
@@ -126,6 +127,7 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	c.globalRules = newGlobalRuleClient(c)
 	c.consumer = newConsumerClient(c)
 	c.plugin = newPluginClient(c)
+	c.schema = newSchemaClient(c)
 
 	c.cache, err = cache.NewMemDBCache()
 	if err != nil {
@@ -336,6 +338,11 @@ func (c *cluster) Consumer() Consumer {
 // Plugin implements Cluster.Plugin method.
 func (c *cluster) Plugin() Plugin {
 	return c.plugin
+}
+
+// Schema implements Cluster.Schema method.
+func (c *cluster) Schema() Schema {
+	return c.schema
 }
 
 // HealthCheck implements Cluster.HealthCheck method.
@@ -580,4 +587,33 @@ func (c *cluster) getSchema(ctx context.Context, url string) (string, error) {
 	}
 
 	return readBody(resp.Body, url), nil
+}
+
+// getList returns a list of string.
+func (c *cluster) getList(ctx context.Context, url string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer drainBody(resp.Body, url)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, cache.ErrNotFound
+		} else {
+			err = multierr.Append(err, fmt.Errorf("unexpected status code %d", resp.StatusCode))
+			err = multierr.Append(err, fmt.Errorf("error message: %s", readBody(resp.Body, url)))
+		}
+		return nil, err
+	}
+
+	var listResponse []string
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(&listResponse); err != nil {
+		return nil, err
+	}
+	return listResponse, nil
 }

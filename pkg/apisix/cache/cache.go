@@ -65,6 +65,8 @@ type Cache interface {
 	ListGlobalRules() ([]*v1.GlobalRule, error)
 	// ListConsumers lists all consumer objects in cache.
 	ListConsumers() ([]*v1.Consumer, error)
+	// ListSchema lists all schema in cache.
+	ListSchema() ([]*v1.Schema, error)
 
 	// DeleteRoute deletes the specified route in cache.
 	DeleteRoute(*v1.Route) error
