@@ -16,6 +16,9 @@ package translation
 
 import (
 	"bytes"
+	"fmt"
+	apisixv12 "github.com/apache/apisix-ingress-controller/pkg/kube/apisix/apis/config/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"strings"
 
 	"go.uber.org/zap"
@@ -93,7 +96,37 @@ func (t *translator) translateIngressV1beta1(ing *networkingv1beta1.Ingress) (*T
 		upstreamMap: make(map[string]struct{}),
 	}
 	plugins := t.translateAnnotations(ing.Annotations)
-
+	// add https
+	for _, tls := range ing.Spec.TLS {
+		apisixTls := apisixv12.ApisixTls{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ApisixTls",
+				APIVersion: "apisix.apache.org/v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("%v-%v", ing.Name, "tls"),
+				Namespace: ing.Namespace,
+			},
+			Spec: &apisixv12.ApisixTlsSpec{},
+			//Status:     configv2alpha1.ApisixStatus{},
+		}
+		for _, host := range tls.Hosts {
+			apisixTls.Spec.Hosts = append(apisixTls.Spec.Hosts, apisixv12.HostType(host))
+		}
+		apisixTls.Spec.Secret = apisixv12.ApisixSecret{
+			Name:      tls.SecretName,
+			Namespace: ing.Namespace,
+		}
+		ssl, err := t.TranslateSSL(&apisixTls)
+		if err != nil {
+			log.Errorw("failed to translate ingress tls to apisix tls",
+				zap.Error(err),
+				zap.Any("ingress", ing),
+			)
+			return nil, err
+		}
+		ctx.addSSL(ssl)
+	}
 	for _, rule := range ing.Spec.Rules {
 		for _, pathRule := range rule.HTTP.Paths {
 			var (
