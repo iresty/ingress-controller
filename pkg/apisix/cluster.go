@@ -34,10 +34,12 @@ import (
 
 	"github.com/apache/apisix-ingress-controller/pkg/apisix/cache"
 	"github.com/apache/apisix-ingress-controller/pkg/log"
+	"github.com/apache/apisix-ingress-controller/pkg/types"
 )
 
 const (
-	_defaultTimeout = 5 * time.Second
+	_defaultTimeout      = 5 * time.Second
+	_defaultSyncInterval = 6 * time.Hour
 
 	_cacheSyncing = iota
 	_cacheSynced
@@ -73,7 +75,7 @@ type ClusterOptions struct {
 	BaseURL  string
 	Timeout  time.Duration
 	// SyncInterval is the interval to sync schema.
-	SyncInterval time.Duration
+	SyncInterval types.TimeDuration
 }
 
 type cluster struct {
@@ -102,6 +104,9 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	}
 	if o.Timeout == time.Duration(0) {
 		o.Timeout = _defaultTimeout
+	}
+	if o.SyncInterval.Duration == time.Duration(0) {
+		o.SyncInterval = types.TimeDuration{Duration: _defaultSyncInterval}
 	}
 	o.BaseURL = strings.TrimSuffix(o.BaseURL, "/")
 
@@ -138,7 +143,7 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 
 	go c.syncCache()
 
-	ticker := time.NewTicker(o.SyncInterval)
+	ticker := time.NewTicker(o.SyncInterval.Duration)
 	go c.syncSchema(ticker)
 
 	return c, nil
@@ -314,7 +319,7 @@ func (c *cluster) HasSynced(ctx context.Context) error {
 // It firstly deletes all the schema in the cache,
 // then queries and inserts to the cache.
 func (c *cluster) syncSchema(ticker *time.Ticker) {
-	for range ticker.C {
+	for ; true; <-ticker.C {
 		schemaList, err := c.cache.ListSchema()
 		if err != nil {
 			log.Errorf("failed to list schema in the cache: %s", err)
