@@ -23,3 +23,11 @@ linters-settings:
   govet:
     disable:
     - unsafeptr
+  goimports:
+    local-prefixes: github.com/apache/apisix-ingress-controller
+
+linters:
+  enable:
+    - goimports
+    - govet
+    - gofmt
