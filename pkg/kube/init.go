@@ -21,6 +21,8 @@ import (
 	"github.com/apache/apisix-ingress-controller/pkg/config"
 	clientset "github.com/apache/apisix-ingress-controller/pkg/kube/apisix/client/clientset/versioned"
 	"github.com/apache/apisix-ingress-controller/pkg/kube/apisix/client/informers/externalversions"
+	knativeclient "knative.dev/networking/pkg/client/clientset/versioned"
+	knativeinformer "knative.dev/networking/pkg/client/informers/externalversions"
 )
 
 // KubeClient contains some objects used to communicate with Kubernetes API Server.
@@ -31,6 +33,8 @@ type KubeClient struct {
 	Client kubernetes.Interface
 	// APISIXClient is the object used to operate resources under apisix.apache.org group.
 	APISIXClient clientset.Interface
+	// KnativeClient is the object used to operate Knative builtin resources.
+	KnativeClient knativeclient.Interface
 }
 
 // NewKubeClient creates a high-level Kubernetes client.
@@ -49,10 +53,16 @@ func NewKubeClient(cfg *config.Config) (*KubeClient, error) {
 		return nil, err
 	}
 
+	knativeClient, err := knativeclient.NewForConfig(restConfig)
+	if err != nil {
+		return nil, err
+	}
+
 	return &KubeClient{
-		cfg:          cfg,
-		Client:       kubeClient,
-		APISIXClient: apisixKubeClient,
+		cfg:           cfg,
+		Client:        kubeClient,
+		APISIXClient:  apisixKubeClient,
+		KnativeClient: knativeClient,
 	}, nil
 }
 
@@ -66,4 +76,10 @@ func (k *KubeClient) NewSharedIndexInformerFactory() informers.SharedInformerFac
 // and list Kubernetes resources in apisix.apache.org group.
 func (k *KubeClient) NewAPISIXSharedIndexInformerFactory() externalversions.SharedInformerFactory {
 	return externalversions.NewSharedInformerFactory(k.APISIXClient, k.cfg.Kubernetes.ResyncInterval.Duration)
+}
+
+// KnativeSharedIndexInformerFactory is the index informer factory object used to watch
+// and list Knative builtin resources.
+func (k *KubeClient) NewKnativeSharedIndexInformerFactory() knativeinformer.SharedInformerFactory {
+	return knativeinformer.NewSharedInformerFactory(k.KnativeClient, k.cfg.Kubernetes.ResyncInterval.Duration)
 }

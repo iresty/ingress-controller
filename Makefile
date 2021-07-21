@@ -74,6 +74,12 @@ e2e-test: ginkgo-check push-images-to-kind
 	kubectl apply -k $(PWD)/samples/deploy/crd/v1beta1
 	cd test/e2e && ginkgo -cover -coverprofile=coverage.txt -r --randomizeSuites --randomizeAllSpecs --trace -p --nodes=$(E2E_CONCURRENCY)
 
+### knative-integration-test: Run Knative integration test cases
+.PHONY: knative-integration-test
+knative-integration-test:
+	./utils/setup.sh  # Builds and deploys APISIX ingress controller locally in a "kind" cluster with knative, forwards the local 8080 to APISIX ingress controller/APISIX
+	./test/e2e-kind.sh
+
 .PHONY: ginkgo-check
 ginkgo-check:
 ifeq ("$(wildcard $(GINKGO))", "")

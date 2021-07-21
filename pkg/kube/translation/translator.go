@@ -88,6 +88,9 @@ type Translator interface {
 	// TranslateApisixConsumer translates the configv2alpha1.APisixConsumer object into the APISIX Consumer
 	// resource.
 	TranslateApisixConsumer(*configv2alpha1.ApisixConsumer) (*apisixv1.Consumer, error)
+	// TranslateKnativeIngress composes a couple of APISIX Routes and upstreams according
+	// to the given Knative Ingress resource.
+	TranslateKnativeIngress(ingress kube.KnativeIngress) (*TranslateContext, error)
 }
 
 // TranslatorOptions contains options to help Translator
@@ -249,5 +252,14 @@ func (t *translator) TranslateIngress(ing kube.Ingress) (*TranslateContext, erro
 		return t.translateIngressExtensionsV1beta1(ing.ExtensionsV1beta1())
 	default:
 		return nil, fmt.Errorf("translator: source group version not supported: %s", ing.GroupVersion())
+	}
+}
+
+func (t *translator) TranslateKnativeIngress(knativeIngress kube.KnativeIngress) (*TranslateContext, error) {
+	switch knativeIngress.GroupVersion() {
+	case kube.KnativeIngressV1alpha1:
+		return t.translateKnativeIngressV1alpha1(knativeIngress.V1alpha1())
+	default:
+		return nil, fmt.Errorf("translator: source group version not supported: %s", knativeIngress.GroupVersion())
 	}
 }

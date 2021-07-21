@@ -20,6 +20,8 @@ kind: Kustomization
 namespace: ingress-apisix
 commonLabels:
   apisix.apache.org/app: ingress-apisix
+  networking.knative.dev/ingress-provider: apisix
+  serving.knative.dev/release: devel
 bases:
   - ./configmap
   - ./deployment

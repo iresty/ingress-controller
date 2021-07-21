@@ -41,8 +41,9 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       containers:
-      - image: apache/apisix-ingress-controller:1.0.0
+      - image: ko://../apisix-ingress-controller
         imagePullPolicy: IfNotPresent
+        args: ["ingress", "--config-path", "/ingress-apisix/conf/config.yaml"]
         name: ingress-controller
         ports:
         - containerPort: 8080
