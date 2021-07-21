@@ -21,7 +21,7 @@ title: Getting Started
 #
 -->
 
-## What is apisix-ingress-controller
+## What is apisix-ingress-controller {#apisix-ingress-controller}
 
 apisix-ingress-controller is yet another Ingress controller for Kubernetes using [Apache APISIX](https://apisix.apache.org) as the high performance reverse proxy.
 
