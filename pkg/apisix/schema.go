@@ -52,7 +52,7 @@ func (sc schemaClient) getSchema(ctx context.Context, name string) (*v1.Schema, 
 		return schema, nil
 	}
 	if err == cache.ErrNotFound {
-		log.Debugw("failed to find plugin's schema in cache, will try to lookup from APISIX",
+		log.Debugw("failed to find schema in cache, will try to lookup from APISIX",
 			zap.String("name", name),
 			zap.Error(err),
 		)
@@ -66,7 +66,7 @@ func (sc schemaClient) getSchema(ctx context.Context, name string) (*v1.Schema, 
 	url := sc.url + "/" + name
 	content, err := sc.cluster.getSchema(ctx, url)
 	if err != nil {
-		log.Errorw("failed to get plugin schema from APISIX",
+		log.Errorw("failed to get schema from APISIX",
 			zap.String("name", name),
 			zap.String("url", url),
 			zap.String("cluster", "default"),

@@ -72,6 +72,8 @@ type ClusterOptions struct {
 	AdminKey string
 	BaseURL  string
 	Timeout  time.Duration
+	// SyncInterval is the interval to sync schema.
+	SyncInterval time.Duration
 }
 
 type cluster struct {
@@ -135,6 +137,9 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	}
 
 	go c.syncCache()
+
+	ticker := time.NewTicker(o.SyncInterval)
+	go c.syncSchema(ticker)
 
 	return c, nil
 }
@@ -302,6 +307,54 @@ func (c *cluster) HasSynced(ctx context.Context) error {
 		}
 		log.Warnf("cluster %s now is ready, cost time %s", c.name, time.Since(now).String())
 		return nil
+	}
+}
+
+// syncSchema syncs schema from APISIX.
+// It firstly deletes all the schema in the cache,
+// then queries and inserts to the cache.
+func (c *cluster) syncSchema(ticker *time.Ticker) {
+	for range ticker.C {
+		schemaList, err := c.cache.ListSchema()
+		if err != nil {
+			log.Errorf("failed to list schema in the cache: %s", err)
+			return
+		}
+		for _, s := range schemaList {
+			if err := c.cache.DeleteSchema(s); err != nil {
+				log.Warnw("failed to delete schema in cache",
+					zap.String("schemaName", s.Name),
+					zap.String("schemaContent", s.Content),
+					zap.String("error", err.Error()),
+				)
+			}
+		}
+
+		// update plugins' schema.
+		pluginList, err := c.plugin.List(context.TODO())
+		if err != nil {
+			log.Errorf("failed to list plugin names in APISIX: %s", err)
+			return
+		}
+		for _, p := range pluginList {
+			ps, err := c.schema.GetPluginSchema(context.TODO(), p)
+			if err != nil {
+				log.Warnw("failed to get plugin schema",
+					zap.String("plugin", p),
+					zap.String("error", err.Error()),
+				)
+				continue
+			}
+
+			if err := c.cache.InsertSchema(ps); err != nil {
+				log.Warnw("failed to insert schema to cache",
+					zap.String("plugin", p),
+					zap.String("cluster", c.name),
+					zap.String("error", err.Error()),
+				)
+				continue
+			}
+		}
 	}
 }
 
