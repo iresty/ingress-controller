@@ -34,10 +34,12 @@ import (
 
 	"github.com/apache/apisix-ingress-controller/pkg/apisix/cache"
 	"github.com/apache/apisix-ingress-controller/pkg/log"
+	"github.com/apache/apisix-ingress-controller/pkg/types"
 )
 
 const (
-	_defaultTimeout = 5 * time.Second
+	_defaultTimeout      = 5 * time.Second
+	_defaultSyncInterval = 6 * time.Hour
 
 	_cacheSyncing = iota
 	_cacheSynced
@@ -72,6 +74,8 @@ type ClusterOptions struct {
 	AdminKey string
 	BaseURL  string
 	Timeout  time.Duration
+	// SyncInterval is the interval to sync schema.
+	SyncInterval types.TimeDuration
 }
 
 type cluster struct {
@@ -90,6 +94,8 @@ type cluster struct {
 	streamRoute  StreamRoute
 	globalRules  GlobalRule
 	consumer     Consumer
+	plugin       Plugin
+	schema       Schema
 }
 
 func newCluster(o *ClusterOptions) (Cluster, error) {
@@ -98,6 +104,9 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	}
 	if o.Timeout == time.Duration(0) {
 		o.Timeout = _defaultTimeout
+	}
+	if o.SyncInterval.Duration == time.Duration(0) {
+		o.SyncInterval = types.TimeDuration{Duration: _defaultSyncInterval}
 	}
 	o.BaseURL = strings.TrimSuffix(o.BaseURL, "/")
 
@@ -124,6 +133,8 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	c.streamRoute = newStreamRouteClient(c)
 	c.globalRules = newGlobalRuleClient(c)
 	c.consumer = newConsumerClient(c)
+	c.plugin = newPluginClient(c)
+	c.schema = newSchemaClient(c)
 
 	c.cache, err = cache.NewMemDBCache()
 	if err != nil {
@@ -131,6 +142,9 @@ func newCluster(o *ClusterOptions) (Cluster, error) {
 	}
 
 	go c.syncCache()
+
+	ticker := time.NewTicker(o.SyncInterval.Duration)
+	go c.syncSchema(ticker)
 
 	return c, nil
 }
@@ -301,6 +315,54 @@ func (c *cluster) HasSynced(ctx context.Context) error {
 	}
 }
 
+// syncSchema syncs schema from APISIX.
+// It firstly deletes all the schema in the cache,
+// then queries and inserts to the cache.
+func (c *cluster) syncSchema(ticker *time.Ticker) {
+	for ; true; <-ticker.C {
+		schemaList, err := c.cache.ListSchema()
+		if err != nil {
+			log.Errorf("failed to list schema in the cache: %s", err)
+			return
+		}
+		for _, s := range schemaList {
+			if err := c.cache.DeleteSchema(s); err != nil {
+				log.Warnw("failed to delete schema in cache",
+					zap.String("schemaName", s.Name),
+					zap.String("schemaContent", s.Content),
+					zap.String("error", err.Error()),
+				)
+			}
+		}
+
+		// update plugins' schema.
+		pluginList, err := c.plugin.List(context.TODO())
+		if err != nil {
+			log.Errorf("failed to list plugin names in APISIX: %s", err)
+			return
+		}
+		for _, p := range pluginList {
+			ps, err := c.schema.GetPluginSchema(context.TODO(), p)
+			if err != nil {
+				log.Warnw("failed to get plugin schema",
+					zap.String("plugin", p),
+					zap.String("error", err.Error()),
+				)
+				continue
+			}
+
+			if err := c.cache.InsertSchema(ps); err != nil {
+				log.Warnw("failed to insert schema to cache",
+					zap.String("plugin", p),
+					zap.String("cluster", c.name),
+					zap.String("error", err.Error()),
+				)
+				continue
+			}
+		}
+	}
+}
+
 // Route implements Cluster.Route method.
 func (c *cluster) Route() Route {
 	return c.route
@@ -329,6 +391,16 @@ func (c *cluster) GlobalRule() GlobalRule {
 // Consumer implements Cluster.Consumer method.
 func (c *cluster) Consumer() Consumer {
 	return c.consumer
+}
+
+// Plugin implements Cluster.Plugin method.
+func (c *cluster) Plugin() Plugin {
+	return c.plugin
+}
+
+// Schema implements Cluster.Schema method.
+func (c *cluster) Schema() Schema {
+	return c.schema
 }
 
 // HealthCheck implements Cluster.HealthCheck method.
@@ -549,4 +621,57 @@ func readBody(r io.ReadCloser, url string) string {
 		return ""
 	}
 	return string(data)
+}
+
+// getSchema returns the schema of APISIX object.
+func (c *cluster) getSchema(ctx context.Context, url string) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return "", err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return "", err
+	}
+	defer drainBody(resp.Body, url)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return "", cache.ErrNotFound
+		} else {
+			err = multierr.Append(err, fmt.Errorf("unexpected status code %d", resp.StatusCode))
+			err = multierr.Append(err, fmt.Errorf("error message: %s", readBody(resp.Body, url)))
+		}
+		return "", err
+	}
+
+	return readBody(resp.Body, url), nil
+}
+
+// getList returns a list of string.
+func (c *cluster) getList(ctx context.Context, url string) ([]string, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := c.do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer drainBody(resp.Body, url)
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, cache.ErrNotFound
+		} else {
+			err = multierr.Append(err, fmt.Errorf("unexpected status code %d", resp.StatusCode))
+			err = multierr.Append(err, fmt.Errorf("error message: %s", readBody(resp.Body, url)))
+		}
+		return nil, err
+	}
+
+	var listResponse []string
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(&listResponse); err != nil {
+		return nil, err
+	}
+	return listResponse, nil
 }

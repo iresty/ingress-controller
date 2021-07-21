@@ -35,6 +35,8 @@ type Cache interface {
 	InsertGlobalRule(*v1.GlobalRule) error
 	// InsertConsumer adds or updates consumer to cache.
 	InsertConsumer(*v1.Consumer) error
+	// InsertSchema adds or updates schema to cache.
+	InsertSchema(*v1.Schema) error
 
 	// GetRoute finds the route from cache according to the primary index (id).
 	GetRoute(string) (*v1.Route, error)
@@ -48,6 +50,8 @@ type Cache interface {
 	GetGlobalRule(string) (*v1.GlobalRule, error)
 	// GetConsumer finds the consumer from cache according to the primary index (id).
 	GetConsumer(string) (*v1.Consumer, error)
+	// GetSchema finds the scheme from cache according to the primary index (id).
+	GetSchema(string) (*v1.Schema, error)
 
 	// ListRoutes lists all routes in cache.
 	ListRoutes() ([]*v1.Route, error)
@@ -61,6 +65,8 @@ type Cache interface {
 	ListGlobalRules() ([]*v1.GlobalRule, error)
 	// ListConsumers lists all consumer objects in cache.
 	ListConsumers() ([]*v1.Consumer, error)
+	// ListSchema lists all schema in cache.
+	ListSchema() ([]*v1.Schema, error)
 
 	// DeleteRoute deletes the specified route in cache.
 	DeleteRoute(*v1.Route) error
@@ -74,4 +80,6 @@ type Cache interface {
 	DeleteGlobalRule(*v1.GlobalRule) error
 	// DeleteConsumer deletes the specified consumer in cache.
 	DeleteConsumer(*v1.Consumer) error
+	// DeleteSchema deletes the specified schema in cache.
+	DeleteSchema(*v1.Schema) error
 }

@@ -106,6 +106,16 @@ var (
 					},
 				},
 			},
+			"schema": {
+				Name: "schema",
+				Indexes: map[string]*memdb.IndexSchema{
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "Name"},
+					},
+				},
+			},
 		},
 	}
 )

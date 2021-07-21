@@ -345,3 +345,47 @@ func TestMemDBCacheConsumer(t *testing.T) {
 	}
 	assert.Error(t, ErrNotFound, c.DeleteConsumer(c4))
 }
+
+func TestMemDBCacheSchema(t *testing.T) {
+	c, err := NewMemDBCache()
+	assert.Nil(t, err, "NewMemDBCache")
+
+	s1 := &v1.Schema{
+		Name:    "plugins/p1",
+		Content: "plugin schema",
+	}
+	assert.Nil(t, c.InsertSchema(s1), "inserting schema s1")
+
+	s11, err := c.GetSchema("plugins/p1")
+	assert.Nil(t, err)
+	assert.Equal(t, s1, s11)
+
+	s2 := &v1.Schema{
+		Name: "plugins/p2",
+	}
+	s3 := &v1.Schema{
+		Name: "plugins/p3",
+	}
+	assert.Nil(t, c.InsertSchema(s2), "inserting schema s2")
+	assert.Nil(t, c.InsertSchema(s3), "inserting schema s3")
+
+	s22, err := c.GetSchema("plugins/p2")
+	assert.Nil(t, err)
+	assert.Equal(t, s2, s22)
+
+	assert.Nil(t, c.DeleteSchema(s3), "delete schema s3")
+
+	schemaList, err := c.ListSchema()
+	assert.Nil(t, err, "listing schema")
+
+	if schemaList[0].Name > schemaList[1].Name {
+		schemaList[0], schemaList[1] = schemaList[1], schemaList[0]
+	}
+	assert.Equal(t, schemaList[0], s1)
+	assert.Equal(t, schemaList[1], s2)
+
+	s4 := &v1.Schema{
+		Name: "plugins/p4",
+	}
+	assert.Error(t, ErrNotFound, c.DeleteSchema(s4))
+}

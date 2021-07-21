@@ -54,6 +54,10 @@ type Cluster interface {
 	Consumer() Consumer
 	// HealthCheck checks apisix cluster health in realtime.
 	HealthCheck(context.Context) error
+	// Plugin returns a Plugin interface that can operate Plugin resources.
+	Plugin() Plugin
+	// Schema returns a Schema interface that can fetch schema of APISIX objects.
+	Schema() Schema
 }
 
 // Route is the specific client interface to take over the create, update,
@@ -106,7 +110,7 @@ type GlobalRule interface {
 	Update(context.Context, *v1.GlobalRule) (*v1.GlobalRule, error)
 }
 
-// Consumer it the specific client interface to take over the create, update,
+// Consumer is the specific client interface to take over the create, update,
 // list and delete for APISIX Consumer resource.
 type Consumer interface {
 	Get(context.Context, string) (*v1.Consumer, error)
@@ -114,6 +118,16 @@ type Consumer interface {
 	Create(context.Context, *v1.Consumer) (*v1.Consumer, error)
 	Delete(context.Context, *v1.Consumer) error
 	Update(context.Context, *v1.Consumer) (*v1.Consumer, error)
+}
+
+// Plugin is the specific client interface to fetch APISIX Plugin resource.
+type Plugin interface {
+	List(context.Context) ([]string, error)
+}
+
+// Schema is the specific client interface to fetch the schema of APISIX objects.
+type Schema interface {
+	GetPluginSchema(context.Context, string) (*v1.Schema, error)
 }
 
 type apisix struct {

@@ -463,3 +463,23 @@ func ComposeConsumerName(namespace, name string) string {
 
 	return buf.String()
 }
+
+// Schema represents the schema of APISIX objects.
+type Schema struct {
+	Name    string `json:"name,omitempty" yaml:"name,omitempty"`
+	Content string `json:"content,omitempty" yaml:"content,omitempty"`
+}
+
+func (s *Schema) DeepCopyInto(out *Schema) {
+	b, _ := json.Marshal(&s)
+	_ = json.Unmarshal(b, out)
+}
+
+func (s *Schema) DeepCopy() *Schema {
+	if s == nil {
+		return nil
+	}
+	out := new(Schema)
+	s.DeepCopyInto(out)
+	return out
+}
