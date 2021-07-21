@@ -29,28 +29,32 @@ This document explains how to install Ingress APISIX on [ali-cloud ACK](https://
 * Download the kube config for your ACK, follow the [introduction](https://www.alibabacloud.com/help/zh/doc-detail/86378.html).
 * Install [Helm](https://helm.sh/).
 * Clone [Apache APISIX Charts](https://github.com/apache/apisix-helm-chart).
-* Make sure your target namespace exists, `kubectl` operations thorough this document will be executed in namespace `ingress-apisix`.
+* **Make sure your target namespace exists**, `kubectl` operations thorough this document will be executed in namespace `ingress-apisix`.
 
-## Install APISIX
+## Install APISIX and apisix-ingress-controller
 
-[Apache APISIX](http://apisix.apache.org/) as the proxy plane of apisix-ingress-controller, should be deployed in advance.
+As the data plane of apisix-ingress-controller, [Apache APISIX](http://apisix.apache.org/) can be deployed at the same time using Helm chart.
 
 ```shell
 cd /path/to/apisix-helm-chart
 helm repo add bitnami https://charts.bitnami.com/bitnami
-helm repo add apisix https://charts.apiseven.com
-# Use `helm search repo apisix` to search charts about apisix
 helm repo update
-helm install apisix apisix/apisix \
+kubectl create ns ingress-apisix
+helm install apisix charts/apisix \
   --set gateway.type=LoadBalancer \
-  --set admin.allow.ipList="{0.0.0.0/0}" \
+  --set ingress-controller.enabled=true \
   --set etcd.persistence.storageClass="alicloud-disk-ssd" \
   --set etcd.persistence.size="20Gi" \
   --namespace ingress-apisix \
 kubectl get service --namespace ingress-apisix
 ```
 
-Two Service resources were created, one is `apisix-gateway`, which processes the real traffic; another is `apisix-admin`, which acts as the control plane to process all the configuration changes.
+Five Service resources were created.
+
+* `apisix-gateway`, which processes the real traffic;
+* `apisix-admin`, which acts as the control plane to process all the configuration changes.
+* `apisix-ingress-controller`, which exposes apisix-ingress-controller's metrics.
+* `apisix-etcd` and `apisix-etcd-headless` for etcd service and internal communication.
 
 The gateway service type is set to `LoadBalancer` (See [Access services through SLB](https://www.alibabacloud.com/help/doc-detail/182218.htm) for more details), so that clients can access Apache APISIX through a load balancer. You can find the load balancer ip by running:
 
@@ -68,21 +72,5 @@ etcd:
     storageClass: "alicloud-disk-ssd"
     size: 20Gi
 ```
-
-## Install apisix-ingress-controller
-
-You can also install apisix-ingress-controller by Helm Charts, it's recommended to install it in the same namespace with Apache APISIX.
-
-```shell
-cd /path/to/apisix-helm-chart
-# install apisix-ingress-controller
-helm install apisix-ingress-controller apisix/apisix-ingress-controller \
-  --set image.tag=dev \
-  --set config.apisix.baseURL=http://apisix-admin:9180/apisix/admin \
-  --set config.apisix.adminKey=edd1c9f034335f136f87ad84b625c8f1 \
-  --namespace ingress-apisix
-```
-
-Change the `image.tag` to the apisix-ingress-controller version that you desire. You have to Wait for while until the corresponding pods are running.
 
 Try to create some [resources](https://github.com/apache/apisix-ingress-controller/tree/master/docs/en/latest/concepts) to verify the running status. As a minimalist example, see [proxy-the-httpbin-service](../practices/proxy-the-httpbin-service.md) to learn how to apply resources to drive the apisix-ingress-controller.
