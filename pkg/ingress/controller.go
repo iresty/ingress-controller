@@ -601,11 +601,13 @@ func (c *Controller) syncUpstreamNodesChangeToCluster(ctx context.Context, clust
 
 func (c *Controller) checkClusterHealth(ctx context.Context, cancelFunc context.CancelFunc) {
 	defer cancelFunc()
+	t := time.NewTicker(5 * time.Second)
+	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(5 * time.Second):
+		case <-t.C:
 		}
 
 		err := c.apisix.Cluster(c.cfg.APISIX.DefaultClusterName).HealthCheck(ctx)
