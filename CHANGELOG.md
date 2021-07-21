@@ -33,6 +33,8 @@
 Welcome to the 1.1.0 release of apisix-ingress-controller!
 
 This is a **GA** release.
+- an available Kubernetes cluster (version >= 1.15)
+- an available Apache APISIX (version >= 2.7)
 
 ## Highlights
 
@@ -87,6 +89,8 @@ Previous release can be found at [1.0.0](https://github.com/apache/apisix-ingres
 Welcome to the 1.0.0 release of apisix-ingress-controller!
 
 This is the first **GA** release.
+- an available Kubernetes cluster (version >= 1.14)
+- an available Apache APISIX (version >= 2.7)
 
 ## Highlights
 
