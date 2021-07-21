@@ -17,11 +17,12 @@ package apisix
 import (
 	"context"
 	"encoding/json"
-	"github.com/stretchr/testify/assert"
 	"net/http"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"golang.org/x/net/nettest"
 )

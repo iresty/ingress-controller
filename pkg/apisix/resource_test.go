@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	v1 "github.com/apache/apisix-ingress-controller/pkg/types/apisix/v1"
+
 	"github.com/stretchr/testify/assert"
 )
 

@@ -17,7 +17,9 @@ package apisix
 
 import (
 	"context"
+
 	"github.com/apache/apisix-ingress-controller/pkg/log"
+
 	"go.uber.org/zap"
 )
 
@@ -44,6 +46,6 @@ func (p *pluginClient) List(ctx context.Context) ([]string, error) {
 		log.Errorf("failed to list plugins' names: %s", err)
 		return nil, err
 	}
-
+	log.Debugf("plugin list: %v", pluginList)
 	return pluginList, nil
 }
