@@ -15,7 +15,11 @@
 package apisix
 
 import (
+	"context"
+	"encoding/json"
+	"github.com/stretchr/testify/assert"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -23,7 +27,13 @@ import (
 )
 
 type fakeAPISIXPluginSrv struct {
-	plugins map[string]string
+	plugins []string
+}
+
+var fakePluginNames = []string{
+	"plugin-1",
+	"plugin-2",
+	"plugin-3",
 }
 
 func (srv *fakeAPISIXPluginSrv) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -35,27 +45,16 @@ func (srv *fakeAPISIXPluginSrv) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 
 	if r.Method == http.MethodGet {
-		list := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-		if len(list) < 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		pluginName := list[len(list)-1]
-		if resp, ok := srv.plugins[pluginName]; ok {
-			_, _ = w.Write([]byte(resp))
-		} else {
-			_, _ = w.Write([]byte(errMsg))
-		}
+		data, _ := json.Marshal(srv.plugins)
+		_, _ = w.Write(data)
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-
 }
 
 func runFakePluginSrv(t *testing.T) *http.Server {
 	srv := &fakeAPISIXPluginSrv{
-		plugins: testData,
+		plugins: fakePluginNames,
 	}
 
 	ln, _ := nettest.NewLocalListener("tcp")
@@ -75,34 +74,31 @@ func runFakePluginSrv(t *testing.T) *http.Server {
 }
 
 func TestPluginClient(t *testing.T) {
-	//srv := runFakePluginSrv(t)
-	//defer func() {
-	//	assert.Nil(t, srv.Shutdown(context.Background()))
-	//}()
-	//
-	//u := url.URL{
-	//	Scheme: "http",
-	//	Host:   srv.Addr,
-	//	Path:   "/apisix/admin",
-	//}
-	//
-	//closedCh := make(chan struct{})
-	//close(closedCh)
-	//cli := newPluginClient(&cluster{
-	//	baseURL:     u.String(),
-	//	cli:         http.DefaultClient,
-	//	cache:       &dummyCache{},
-	//	cacheSynced: closedCh,
-	//})
+	srv := runFakePluginSrv(t)
+	defer func() {
+		assert.Nil(t, srv.Shutdown(context.Background()))
+	}()
 
-	//for k := range testData {
-	//	obj, err := cli.Get(context.Background(), k)
-	//	assert.Nil(t, err)
-	//	assert.Equal(t, obj.Name, k)
-	//	assert.Equal(t, obj.Content, testData[k])
-	//}
-	//
-	//obj, err := cli.Get(context.Background(), "not-a-plugin")
-	//assert.Nil(t, err)
-	//assert.Equal(t, obj.Content, errMsg)
+	u := url.URL{
+		Scheme: "http",
+		Host:   srv.Addr,
+		Path:   "/apisix/admin",
+	}
+
+	closedCh := make(chan struct{})
+	close(closedCh)
+	cli := newPluginClient(&cluster{
+		baseURL:     u.String(),
+		cli:         http.DefaultClient,
+		cache:       &dummyCache{},
+		cacheSynced: closedCh,
+	})
+
+	// List
+	objs, err := cli.List(context.Background())
+	assert.Nil(t, err)
+	assert.Len(t, objs, len(fakePluginNames))
+	for i := range fakePluginNames {
+		assert.Equal(t, objs[i], fakePluginNames[i])
+	}
 }
